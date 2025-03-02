@@ -1,20 +1,43 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "screen.c"
-#include "world.c"
 
 void extapp_main(void) {
-    /*for (uint8_t i = 0; i < TEXTURE_COUNT; i++) {
-        uint16_t x = 10 + (i % 6) * 50;
-        uint16_t y = 10 + (i / 6) * 50;
-        drawSpriteCut(TEXTURES[i], x, y, 5);
-    }*/
-
+    clearScreen();
     initScreen();
+    initMap();
+    mapToScreen();
     drawScreen();
 
-
     while (!extapp_isKeydown(5)) {
+        if (extapp_isKeydown(3)) {
+            cameraX++;
+            clearScreen();
+            initScreen();
+            mapToScreen();
+            drawScreen();
+        }
+        if (extapp_isKeydown(0)) {
+            cameraX--;
+            clearScreen();
+            initScreen();
+            mapToScreen();
+            drawScreen();
+        }
+        if (extapp_isKeydown(2)) {
+            cameraY++;
+            clearScreen();
+            initScreen();
+            mapToScreen();
+            drawScreen();
+        }
+        if (extapp_isKeydown(1)) {
+            cameraY--;
+            clearScreen();
+            initScreen();
+            mapToScreen();
+            drawScreen();
+        }
         extapp_msleep(100);
     }
 }
