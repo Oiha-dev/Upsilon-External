@@ -94,11 +94,11 @@ void mapToScreen() {
                 uint8_t block = MAP[x][z][y];
                 if (block != 0) {
                     int16_t screen_x = x * -1 + z + cameraX;
-                    int16_t screen_y = x + z + cameraY - y;
+                    int16_t screen_y = x + z + cameraY - y*2;
 
                     if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
                         screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
-                        addBlock((uint8_t)screen_x, (uint8_t)screen_y, block);
+                        addBlock(screen_x, screen_y, block);
                     }
                 }
             }
