@@ -6,8 +6,8 @@
 #define SCREEN_WIDTH 20
 #define SCREEN_HEIGHT 31
 
-int8_t cameraX = 10;
-int8_t cameraY = 15;
+int8_t cameraX = 5;
+int8_t cameraY = 7;
 
 typedef struct {
     uint8_t block;
@@ -15,6 +15,8 @@ typedef struct {
 } triangle;
 
 triangle SCREEN[SCREEN_WIDTH][SCREEN_HEIGHT];
+
+triangle SCREEN_OLD[SCREEN_WIDTH][SCREEN_HEIGHT];
 
 void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut) {
     if (cut == 2) {
@@ -86,11 +88,15 @@ void drawScreen() {
         for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
             uint8_t block = SCREEN[x][y].block;
             uint8_t face = SCREEN[x][y].face;
+            if (SCREEN_OLD[x][y].block == block && SCREEN_OLD[x][y].face == face) {
+                continue;
+            }
             if (block != 0) {
             	drawSpriteCut(TEXTURES[block - 1], x * 16, y * 8 - 8, face);
             } else {
                 drawSpriteCut(0, x * 16, y * 8 - 8, face);
             }
+            SCREEN_OLD[x][y] = SCREEN[x][y];
         }
     }
 }
@@ -101,8 +107,8 @@ void mapToScreen() {
             for (uint8_t y = 0; y < MAP_HEIGHT; y++) {
                 uint8_t block = MAP[x][z][y];
                 if (block != 0) {
-                    int16_t screen_x = x * -1 + z + cameraX;
-                    int16_t screen_y = x + z + cameraY - y*2;
+                    int16_t screen_x = x * -1 + z + cameraX*2;
+                    int16_t screen_y = x + z + cameraY*2 - y*2;
 
                     if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
                         screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
