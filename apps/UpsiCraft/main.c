@@ -2,9 +2,10 @@
 #include <stdint.h>
 #include "screen.c"
 
-void extapp_main(void) {
+void extapp_main() {
     clearScreen();
     initScreen();
+    initScreenOld();
     initMap();
     mapToScreen();
     drawScreen();

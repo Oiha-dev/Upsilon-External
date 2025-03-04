@@ -83,6 +83,14 @@ void initScreen() {
     }
 }
 
+void initScreenOld() {
+for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
+        for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
+            SCREEN_OLD[x][y] = SCREEN[x][y];
+        }
+    }
+}
+
 void drawScreen() {
     for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
         for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
