@@ -14,7 +14,7 @@ typedef struct {
     uint8_t block;
     uint8_t face;
     uint8_t coord[3];
-    bool shadow;
+    uint8_t shadow;
 } triangle;
 
 triangle SCREEN[SCREEN_WIDTH][SCREEN_HEIGHT];
@@ -31,23 +31,16 @@ uint16_t getColor(uint8_t colorIndex, uint8_t dark) {
            (palette[colorIndex][2] >> 3);
 }
 
-bool needShadow(uint8_t x, uint8_t y, uint8_t z) {
+uint8_t needShadow(uint8_t x, uint8_t y, uint8_t z) {
     for (uint8_t step = 1; y + step < MAP_HEIGHT && z - step >= 0; step++) {
         if (MAP[x + step][z - step][y + step] != 0) {
-            return true;
+            return 1;
         }
     }
-    return false;
+    return 0;
 }
 
-void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, triangle tri) {
-    static const int8_t cutOffsets[7][2] = {
-        {0, 0}, {0, 0}, {-16, 0}, {-16, -8}, {-16, -16}, {0, -16}, {0, -8}
-    };
-
-    x += cutOffsets[tri.face][0];
-    y += cutOffsets[tri.face][1];
-
+void drawShadow(const uint8_t *texture, int16_t x, int16_t y, triangle tri) {
     for (int j = 0; j < ISO_HEIGHT; j++) {
         for (int i = 0; i < ISO_WIDTH; i++) {
             uint8_t colorIndexCut = TEXTURE_BLOCKMAP[j * ISO_WIDTH + i];
@@ -60,7 +53,37 @@ void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, triangle tri) {
 
             uint8_t colorIndex = texture[j * ISO_WIDTH + i];
             if (colorIndex != 255) {
-                extapp_pushRectUniform(x + i, y + j, 1, 1, getColor(colorIndex, tri.face == 3 || tri.face == 4 || ((tri.face == 1 || tri.face == 2) && tri.shadow)));
+            	extapp_pushRectUniform(x + i, y + j, 1, 1, getColor(colorIndex, 1));
+            }
+        }
+    }
+}
+
+void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, triangle tri) {
+    static const int8_t cutOffsets[7][2] = {
+        {0, 0}, {0, 0}, {-16, 0}, {-16, -8}, {-16, -16}, {0, -16}, {0, -8}
+    };
+
+    x += cutOffsets[tri.face][0];
+    y += cutOffsets[tri.face][1];
+
+    if (tri.shadow != 0) {
+      	drawShadow(texture, x, y, tri);
+    	return;
+    }
+    for (int j = 0; j < ISO_HEIGHT; j++) {
+        for (int i = 0; i < ISO_WIDTH; i++) {
+            uint8_t colorIndexCut = TEXTURE_BLOCKMAP[j * ISO_WIDTH + i];
+            if (colorIndexCut != tri.face) continue;
+
+            if (!texture) {
+                extapp_pushRectUniform(x + i, y + j, 1, 1, 0x555F);
+                continue;
+            }
+
+            uint8_t colorIndex = texture[j * ISO_WIDTH + i];
+            if (colorIndex != 255) {
+            	extapp_pushRectUniform(x + i, y + j, 1, 1, getColor(colorIndex, 0));
             }
         }
     }
