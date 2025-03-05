@@ -18,79 +18,63 @@ typedef struct {
 triangle SCREEN[SCREEN_WIDTH][SCREEN_HEIGHT];
 triangle SCREEN_OLD[SCREEN_WIDTH][SCREEN_HEIGHT];
 
+uint16_t getColor(uint8_t colorIndex, uint8_t dark) {
+    const uint8_t (*palette)[3] = dark ? COLOR_PALETTE_DARK : COLOR_PALETTE;
+    return ((palette[colorIndex][0] >> 3) << 11) |
+           ((palette[colorIndex][1] >> 2) << 5) |
+           (palette[colorIndex][2] >> 3);
+}
+
 void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut, uint8_t depth) {
-    if (cut == 2) {
-        x -= 16;
-    } else if (cut == 3) {
-        x -= 16;
-        y -= 8;
-    } else if (cut == 4) {
-        x -= 16;
-        y -= 16;
-    } else if (cut == 5) {
-        y -= 16;
-    } else if (cut == 6) {
-        y -= 8;
-    }
+    static const int8_t cutOffsets[7][2] = {
+        {0, 0}, {0, 0}, {-16, 0}, {-16, -8}, {-16, -16}, {0, -16}, {0, -8}
+    };
+
+    x += cutOffsets[cut][0];
+    y += cutOffsets[cut][1];
+
     for (int j = 0; j < ISO_HEIGHT; j++) {
         for (int i = 0; i < ISO_WIDTH; i++) {
+            uint8_t colorIndexCut = TEXTURE_BLOCKMAP[j * ISO_WIDTH + i];
+            if (colorIndexCut != cut) continue;
 
-			uint8_t colorIndexCut = TEXTURE_BLOCKMAP[j * ISO_WIDTH + i];
-
-            if (texture == 0) {
-              	if (colorIndexCut == cut) {
-                    extapp_pushRectUniform(x + i, y + j, 1, 1, 0x555F);
-                  }
+            if (!texture) {
+                extapp_pushRectUniform(x + i, y + j, 1, 1, 0x555F);
                 continue;
             }
 
             uint8_t colorIndex = texture[j * ISO_WIDTH + i];
-            if (colorIndex != 255 && colorIndexCut == cut) {
-                uint16_t color = ((COLOR_PALETTE[colorIndex][0] >> 3) << 11) |
-                                ((COLOR_PALETTE[colorIndex][1] >> 2) << 5) |
-                                (COLOR_PALETTE[colorIndex][2] >> 3);
-
-                extapp_pushRectUniform(x + i, y + j, 1, 1, color);
+            if (colorIndex != 255) {
+                extapp_pushRectUniform(x + i, y + j, 1, 1, getColor(colorIndex, cut == 3 || cut == 4));
             }
         }
     }
 }
 
-void addBlock(uint8_t x, uint8_t y, uint8_t block, uint8_t depth) {
-    if (x + 1 >= SCREEN_WIDTH || y + 2 >= SCREEN_HEIGHT) {
-        return;
-    }
+void setBlockFace(uint8_t x, uint8_t y, uint8_t block, uint8_t face, uint8_t depth) {
+    SCREEN[x][y] = (triangle){block, face, depth};
+}
 
-    SCREEN[x][y].block = block;
-    SCREEN[x][y].face = 1;
-    SCREEN[x][y].depth = 255/10 * depth;
-    SCREEN[x+1][y].block = block;
-    SCREEN[x+1][y].face = 2;
-    SCREEN[x+1][y].depth = 255/10 * depth;
-    SCREEN[x+1][y+1].block = block;
-    SCREEN[x+1][y+1].face = 3;
-    SCREEN[x+1][y+1].depth = 255/10 * depth;
-    SCREEN[x+1][y+2].block = block;
-    SCREEN[x+1][y+2].face = 4;
-    SCREEN[x+1][y+2].depth = 255/10 * depth;
-    SCREEN[x][y+2].block = block;
-    SCREEN[x][y+2].face = 5;
-    SCREEN[x][y+2].depth = 255/10 * depth;
-    SCREEN[x][y+1].block = block;
-    SCREEN[x][y+1].face = 6;
-    SCREEN[x][y+1].depth = 255/10 * depth;
+void addBlock(uint8_t x, uint8_t y, uint8_t block, uint8_t depth) {
+    if (x + 1 >= SCREEN_WIDTH || y + 2 >= SCREEN_HEIGHT) return;
+    setBlockFace(x, y, block, 1, depth);
+    setBlockFace(x + 1, y, block, 2, depth);
+    setBlockFace(x + 1, y + 1, block, 3, depth);
+    setBlockFace(x + 1, y + 2, block, 4, depth);
+    setBlockFace(x, y + 2, block, 5, depth);
+    setBlockFace(x, y + 1, block, 6, depth);
 }
 
 void initScreen() {
     for (uint8_t x = 0; x < 9; x++) {
         for (uint8_t y = 0; y < 14; y++) {
-            addBlock(x*2+1, y*2+1, 0, 0);
+            addBlock(x * 2 + 1, y * 2 + 1, 0, 0);
         }
     }
 }
 
 void initScreenOld() {
-for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
+    for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
         for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
             SCREEN_OLD[x][y] = SCREEN[x][y];
         }
@@ -121,14 +105,14 @@ void mapToScreen() {
         for (uint8_t z = 0; z < MAP_DEPTH; z++) {
             for (uint8_t y = 0; y < MAP_HEIGHT; y++) {
                 uint8_t block = MAP[x][z][y];
-                if (block != 0) {
-                    int16_t screen_x = x * -1 + z + cameraX*2;
-                    int16_t screen_y = x + z + cameraY*2 - y*2;
+                if (block == 0) continue;
 
-                    if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
-                        screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
-                        addBlock(screen_x, screen_y, block, y);
-                    }
+                int16_t screen_x = x * -1 + z + cameraX * 2;
+                int16_t screen_y = x + z + cameraY * 2 - y * 2;
+
+                if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
+                    screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
+                    addBlock(screen_x, screen_y, block, x + z + y);
                 }
             }
         }
@@ -136,5 +120,5 @@ void mapToScreen() {
 }
 
 void clearScreen() {
-    extapp_pushRectUniform (0, 0, 320, 240, 0x555F);
+    extapp_pushRectUniform(0, 0, 320, 240, 0x555F);
 }
