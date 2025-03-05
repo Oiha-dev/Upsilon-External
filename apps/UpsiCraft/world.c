@@ -2,7 +2,7 @@
 
 #define MAP_WIDTH 32
 #define MAP_DEPTH 32
-#define MAP_HEIGHT 10
+#define MAP_HEIGHT 8
 
 uint8_t MAP[MAP_WIDTH][MAP_DEPTH][MAP_HEIGHT];
 
