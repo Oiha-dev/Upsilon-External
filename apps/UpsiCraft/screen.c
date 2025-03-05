@@ -13,12 +13,16 @@ int8_t cameraY = 7;
 typedef struct {
     uint8_t block;
     uint8_t face;
-    uint8_t depth;
     uint8_t coord[3];
+    bool shadow;
 } triangle;
 
 triangle SCREEN[SCREEN_WIDTH][SCREEN_HEIGHT];
 triangle SCREEN_OLD[SCREEN_WIDTH][SCREEN_HEIGHT];
+
+uint8_t getDepth(triangle tri){
+	return tri.coord[0] + tri.coord[1] + tri.coord[2];
+}
 
 uint16_t getColor(uint8_t colorIndex, uint8_t dark) {
     const uint8_t (*palette)[3] = dark ? COLOR_PALETTE_DARK : COLOR_PALETTE;
@@ -27,28 +31,27 @@ uint16_t getColor(uint8_t colorIndex, uint8_t dark) {
            (palette[colorIndex][2] >> 3);
 }
 
-bool needShawod(uint8_t x, uint8_t y, uint8_t z) {
-    if (MAP[x][z - 1][y + 1] != 0){
-    	return true;
+bool needShadow(uint8_t x, uint8_t y, uint8_t z) {
+    for (uint8_t step = 1; y + step < MAP_HEIGHT && z - step >= 0; step++) {
+        if (MAP[x + step][z - step][y + step] != 0) {
+            return true;
+        }
     }
     return false;
 }
 
-
-
-
-void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut, uint8_t depth, uint8_t coord[3]) {
+void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, triangle tri) {
     static const int8_t cutOffsets[7][2] = {
         {0, 0}, {0, 0}, {-16, 0}, {-16, -8}, {-16, -16}, {0, -16}, {0, -8}
     };
 
-    x += cutOffsets[cut][0];
-    y += cutOffsets[cut][1];
+    x += cutOffsets[tri.face][0];
+    y += cutOffsets[tri.face][1];
 
     for (int j = 0; j < ISO_HEIGHT; j++) {
         for (int i = 0; i < ISO_WIDTH; i++) {
             uint8_t colorIndexCut = TEXTURE_BLOCKMAP[j * ISO_WIDTH + i];
-            if (colorIndexCut != cut) continue;
+            if (colorIndexCut != tri.face) continue;
 
             if (!texture) {
                 extapp_pushRectUniform(x + i, y + j, 1, 1, 0x555F);
@@ -57,24 +60,33 @@ void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut, ui
 
             uint8_t colorIndex = texture[j * ISO_WIDTH + i];
             if (colorIndex != 255) {
-                extapp_pushRectUniform(x + i, y + j, 1, 1, getColor(colorIndex, cut == 3 || cut == 4 || ((cut == 1 || cut == 2) && needShawod(coord[0], coord[1], coord[2]))));
+                extapp_pushRectUniform(x + i, y + j, 1, 1, getColor(colorIndex, tri.face == 3 || tri.face == 4 || ((tri.face == 1 || tri.face == 2) && tri.shadow)));
             }
         }
     }
 }
 
-void setBlockFace(uint8_t x, uint8_t y, uint8_t block, uint8_t face, uint8_t depth, uint8_t coord[3]) {
-    SCREEN[x][y] = (triangle){block, face, depth, {coord[0], coord[1], coord[2]}};
+void setBlockFace(uint8_t x, uint8_t y, uint8_t block, uint8_t face, uint8_t coord[3], bool shadow) {
+    SCREEN[x][y] = (triangle){block, face, {coord[0], coord[1], coord[2]}, shadow};
 }
 
-void addBlock(uint8_t x, uint8_t y, uint8_t block, uint8_t depth, uint8_t coord[3]) {
+void addBlock(uint8_t x, uint8_t y, uint8_t block, uint8_t coord[3], bool shadow) {
     if (x + 1 >= SCREEN_WIDTH || y + 2 >= SCREEN_HEIGHT) return;
-    setBlockFace(x, y, block, 1, depth, coord);
-    setBlockFace(x + 1, y, block, 2, depth, coord);
-    setBlockFace(x + 1, y + 1, block, 3, depth, coord);
-    setBlockFace(x + 1, y + 2, block, 4, depth, coord);
-    setBlockFace(x, y + 2, block, 5, depth, coord);
-    setBlockFace(x, y + 1, block, 6, depth, coord);
+    setBlockFace(x, y, block, 1, coord, shadow);
+    setBlockFace(x + 1, y, block, 2, coord, shadow);
+    setBlockFace(x + 1, y + 1, block, 3, coord, shadow);
+    setBlockFace(x + 1, y + 2, block, 4, coord, shadow);
+    setBlockFace(x, y + 2, block, 5, coord, shadow);
+    setBlockFace(x, y + 1, block, 6, coord, shadow);
+}
+
+bool triangleEquals(triangle a, triangle b) {
+    return a.block == b.block &&
+           a.face == b.face &&
+           a.coord[0] == b.coord[0] &&
+           a.coord[1] == b.coord[1] &&
+           a.coord[2] == b.coord[2] &&
+           a.shadow == b.shadow;
 }
 
 void initScreen() {
@@ -97,15 +109,13 @@ void drawScreen() {
     for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
         for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
             uint8_t block = SCREEN[x][y].block;
-            uint8_t face = SCREEN[x][y].face;
-            uint8_t depth = SCREEN[x][y].depth;
-            if (SCREEN_OLD[x][y].block == block && SCREEN_OLD[x][y].face == face && SCREEN_OLD[x][y].depth == depth) {
+            if (triangleEquals(SCREEN[x][y], SCREEN_OLD[x][y])) {
                 continue;
             }
             if (block != 0) {
-            	drawSpriteCut(TEXTURES[block - 1], x * 16, y * 8 - 8, face, depth, SCREEN[x][y].coord);
+            	drawSpriteCut(TEXTURES[block - 1], x * 16, y * 8 - 8, SCREEN[x][y]);
             } else {
-                drawSpriteCut(0, x * 16, y * 8 - 8, face, depth, SCREEN[x][y].coord);
+                drawSpriteCut(0, x * 16, y * 8 - 8, SCREEN[x][y]);
             }
             SCREEN_OLD[x][y] = SCREEN[x][y];
         }
@@ -124,7 +134,7 @@ void mapToScreen() {
 
                 if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
                     screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
-                    addBlock(screen_x, screen_y, block, x + z + y, (uint8_t[3]){x, y, z});
+                    addBlock(screen_x, screen_y, block, (uint8_t[3]){x, y, z}, needShadow(x, y, z));
                 }
             }
         }
