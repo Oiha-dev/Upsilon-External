@@ -15,8 +15,8 @@ typedef struct {
 } triangle;
 
 triangle SCREEN[SCREEN_WIDTH][SCREEN_HEIGHT];
-
 triangle SCREEN_OLD[SCREEN_WIDTH][SCREEN_HEIGHT];
+uint8_t DEPTH_MAP[SCREEN_WIDTH][SCREEN_HEIGHT];
 
 void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut) {
     if (cut == 2) {
@@ -46,9 +46,9 @@ void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut) {
 
             uint8_t colorIndex = texture[j * ISO_WIDTH + i];
             if (colorIndex != 255 && colorIndexCut == cut) {
-                uint16_t color = ((COLOR_PALETTE[colorIndex][0] >> 3) << 11) |
-                                ((COLOR_PALETTE[colorIndex][1] >> 2) << 5) |
-                                (COLOR_PALETTE[colorIndex][2] >> 3);
+                uint16_t color = ((DEPTH_MAP[x/8][y/8-8] >> 3) << 11) |
+                                ((DEPTH_MAP[x/8][y/8-8] >> 2) << 5) |
+								(DEPTH_MAP[x/8][y/8-8] >> 3);
 
                 extapp_pushRectUniform(x + i, y + j, 1, 1, color);
             }
@@ -75,10 +75,23 @@ void addBlock(uint8_t x, uint8_t y, uint8_t block) {
     SCREEN[x][y+1].face = 6;
 }
 
+void addDepth(uint8_t x, uint8_t y, uint8_t z) {
+    if (x + 1 >= SCREEN_WIDTH || y + 2 >= SCREEN_HEIGHT) {
+        return;
+    }
+    DEPTH_MAP[x][y] = z*20;
+    DEPTH_MAP[x+1][y] = z*20;
+    DEPTH_MAP[x+1][y+1] = z*20;
+    DEPTH_MAP[x+1][y+2] = z*20;
+    DEPTH_MAP[x][y+2] = z*20;
+    DEPTH_MAP[x][y+1] = z*20;
+}
+
 void initScreen() {
     for (uint8_t x = 0; x < 9; x++) {
         for (uint8_t y = 0; y < 14; y++) {
             addBlock(x*2+1, y*2+1, 0);
+            addDepth(x*2+1, y*2+1, 0);
         }
     }
 }
@@ -121,6 +134,7 @@ void mapToScreen() {
                     if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
                         screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
                         addBlock(screen_x, screen_y, block);
+                        addDepth(screen_x, screen_y, y);
                     }
                 }
             }
