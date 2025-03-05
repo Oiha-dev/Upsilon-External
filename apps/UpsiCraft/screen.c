@@ -12,13 +12,13 @@ int8_t cameraY = 7;
 typedef struct {
     uint8_t block;
     uint8_t face;
+    uint8_t depth;
 } triangle;
 
 triangle SCREEN[SCREEN_WIDTH][SCREEN_HEIGHT];
 triangle SCREEN_OLD[SCREEN_WIDTH][SCREEN_HEIGHT];
-uint8_t DEPTH_MAP[SCREEN_WIDTH][SCREEN_HEIGHT];
 
-void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut) {
+void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut, uint8_t depth) {
     if (cut == 2) {
         x -= 16;
     } else if (cut == 3) {
@@ -46,9 +46,9 @@ void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut) {
 
             uint8_t colorIndex = texture[j * ISO_WIDTH + i];
             if (colorIndex != 255 && colorIndexCut == cut) {
-                uint16_t color = ((DEPTH_MAP[x/8][y/8-8] >> 3) << 11) |
-                                ((DEPTH_MAP[x/8][y/8-8] >> 2) << 5) |
-								(DEPTH_MAP[x/8][y/8-8] >> 3);
+                uint16_t color = ((COLOR_PALETTE[colorIndex][0] >> 3) << 11) |
+                                ((COLOR_PALETTE[colorIndex][1] >> 2) << 5) |
+                                (COLOR_PALETTE[colorIndex][2] >> 3);
 
                 extapp_pushRectUniform(x + i, y + j, 1, 1, color);
             }
@@ -56,42 +56,35 @@ void drawSpriteCut(const uint8_t *texture, int16_t x, int16_t y, uint8_t cut) {
     }
 }
 
-void addBlock(uint8_t x, uint8_t y, uint8_t block) {
+void addBlock(uint8_t x, uint8_t y, uint8_t block, uint8_t depth) {
     if (x + 1 >= SCREEN_WIDTH || y + 2 >= SCREEN_HEIGHT) {
         return;
     }
 
     SCREEN[x][y].block = block;
     SCREEN[x][y].face = 1;
+    SCREEN[x][y].depth = 255/10 * depth;
     SCREEN[x+1][y].block = block;
     SCREEN[x+1][y].face = 2;
+    SCREEN[x+1][y].depth = 255/10 * depth;
     SCREEN[x+1][y+1].block = block;
     SCREEN[x+1][y+1].face = 3;
+    SCREEN[x+1][y+1].depth = 255/10 * depth;
     SCREEN[x+1][y+2].block = block;
     SCREEN[x+1][y+2].face = 4;
+    SCREEN[x+1][y+2].depth = 255/10 * depth;
     SCREEN[x][y+2].block = block;
     SCREEN[x][y+2].face = 5;
+    SCREEN[x][y+2].depth = 255/10 * depth;
     SCREEN[x][y+1].block = block;
     SCREEN[x][y+1].face = 6;
-}
-
-void addDepth(uint8_t x, uint8_t y, uint8_t z) {
-    if (x + 1 >= SCREEN_WIDTH || y + 2 >= SCREEN_HEIGHT) {
-        return;
-    }
-    DEPTH_MAP[x][y] = z*20;
-    DEPTH_MAP[x+1][y] = z*20;
-    DEPTH_MAP[x+1][y+1] = z*20;
-    DEPTH_MAP[x+1][y+2] = z*20;
-    DEPTH_MAP[x][y+2] = z*20;
-    DEPTH_MAP[x][y+1] = z*20;
+    SCREEN[x][y+1].depth = 255/10 * depth;
 }
 
 void initScreen() {
     for (uint8_t x = 0; x < 9; x++) {
         for (uint8_t y = 0; y < 14; y++) {
-            addBlock(x*2+1, y*2+1, 0);
-            addDepth(x*2+1, y*2+1, 0);
+            addBlock(x*2+1, y*2+1, 0, 0);
         }
     }
 }
@@ -109,13 +102,14 @@ void drawScreen() {
         for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
             uint8_t block = SCREEN[x][y].block;
             uint8_t face = SCREEN[x][y].face;
-            if (SCREEN_OLD[x][y].block == block && SCREEN_OLD[x][y].face == face) {
+            uint8_t depth = SCREEN[x][y].depth;
+            if (SCREEN_OLD[x][y].block == block && SCREEN_OLD[x][y].face == face && SCREEN_OLD[x][y].depth == depth) {
                 continue;
             }
             if (block != 0) {
-            	drawSpriteCut(TEXTURES[block - 1], x * 16, y * 8 - 8, face);
+            	drawSpriteCut(TEXTURES[block - 1], x * 16, y * 8 - 8, face, depth);
             } else {
-                drawSpriteCut(0, x * 16, y * 8 - 8, face);
+                drawSpriteCut(0, x * 16, y * 8 - 8, face, depth);
             }
             SCREEN_OLD[x][y] = SCREEN[x][y];
         }
@@ -133,8 +127,7 @@ void mapToScreen() {
 
                     if (screen_x >= 0 && screen_x + 1 < SCREEN_WIDTH &&
                         screen_y >= 0 && screen_y + 1 < SCREEN_HEIGHT) {
-                        addBlock(screen_x, screen_y, block);
-                        addDepth(screen_x, screen_y, y);
+                        addBlock(screen_x, screen_y, block, y);
                     }
                 }
             }
