@@ -2,6 +2,24 @@
 #include <stdint.h>
 #include "screen.c"
 
+void updateScreen() {
+    initScreen();
+    mapToScreen();
+    drawScreen();
+}
+
+void handleInput() {
+    int dx = 0, dy = 0;
+    if (extapp_isKeydown(3)) dx++;
+    if (extapp_isKeydown(0)) dx--;
+    if (extapp_isKeydown(2)) dy++;
+    if (extapp_isKeydown(1)) dy--;
+
+    cameraX += dx;
+    cameraY += dy;
+}
+
+
 void extapp_main() {
     clearScreen();
     initScreen();
@@ -11,30 +29,8 @@ void extapp_main() {
     drawScreen();
 
     while (!extapp_isKeydown(5)) {
-        if (extapp_isKeydown(3)) {
-            cameraX++;
-            initScreen();
-            mapToScreen();
-            drawScreen();
-        }
-        if (extapp_isKeydown(0)) {
-            cameraX--;
-            initScreen();
-            mapToScreen();
-            drawScreen();
-        }
-        if (extapp_isKeydown(2)) {
-            cameraY++;
-            initScreen();
-            mapToScreen();
-            drawScreen();
-        }
-        if (extapp_isKeydown(1)) {
-            cameraY--;
-            initScreen();
-            mapToScreen();
-            drawScreen();
-        }
+        handleInput();
+        updateScreen();
         extapp_msleep(100);
     }
 }
